@@ -15,7 +15,7 @@ import argparse
 import math
 import pathlib
 
-from forklift_description.urdf_kinematics import DEFAULT_XACRO, generate_urdf, Model
+from forklift_description.urdf_kinematics import default_xacro, generate_urdf, Model
 import matplotlib
 import numpy as np
 from scipy.spatial import ConvexHull
@@ -52,7 +52,7 @@ def main():
     parser.add_argument('--params', default='', help='geometry YAML (default: package config)')
     args = parser.parse_args()
 
-    params_path = pathlib.Path(args.params or DEFAULT_XACRO.parents[1] / 'config'
+    params_path = pathlib.Path(args.params or default_xacro().parents[1] / 'config'
                                / 'forklift_params.yaml')
     p = yaml.safe_load(params_path.read_text())
     model = Model(generate_urdf(params_file=args.params) if args.params else generate_urdf())

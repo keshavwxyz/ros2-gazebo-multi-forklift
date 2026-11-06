@@ -12,12 +12,28 @@ import xml.etree.ElementTree as ET
 
 import numpy as np
 
-DEFAULT_XACRO = pathlib.Path(__file__).resolve().parents[1] / 'urdf' / 'forklift.urdf.xacro'
+_SOURCE_XACRO = pathlib.Path(__file__).resolve().parents[1] / 'urdf' / 'forklift.urdf.xacro'
 
 
-def generate_urdf(xacro_file=DEFAULT_XACRO, **mappings):
+def default_xacro():
+    """
+    Return the path of the forklift xacro.
+
+    The source tree has the xacro next to this module (symlink install). A copy install
+    puts this module in site-packages, thus use the share directory of the package.
+    """
+    if _SOURCE_XACRO.is_file():
+        return _SOURCE_XACRO
+    from ament_index_python.packages import get_package_share_directory
+    share = pathlib.Path(get_package_share_directory('forklift_description'))
+    return share / 'urdf' / 'forklift.urdf.xacro'
+
+
+def generate_urdf(xacro_file=None, **mappings):
     """Run xacro and return the URDF XML string."""
     import xacro
+    if xacro_file is None:
+        xacro_file = default_xacro()
     doc = xacro.process_file(str(xacro_file),
                              mappings={k: str(v) for k, v in mappings.items()})
     return doc.toxml()
