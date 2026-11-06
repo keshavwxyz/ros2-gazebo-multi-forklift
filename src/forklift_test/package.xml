@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>forklift_test</name>
+  <version>0.1.0</version>
+  <description>Cross-package integration (mock hardware) and Gazebo simulation tests for the forklift.</description>
+  <maintainer email="keshavbhardwaj5354@gmail.com">keshavwxyz</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_cmake_python</buildtool_depend>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>forklift_interfaces</exec_depend>
+  <exec_depend>controller_manager_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>rosgraph_msgs</exec_depend>
+
+  <test_depend>forklift_bringup</test_depend>
+  <test_depend>forklift_task_manager</test_depend>
+  <test_depend>forklift_fleet</test_depend>
+  <test_depend>forklift_navigation</test_depend>
+  <test_depend>nav2_msgs</test_depend>
+  <test_depend>std_srvs</test_depend>
+  <test_depend>python3-opencv</test_depend>
+  <test_depend>ament_cmake_pytest</test_depend>
+  <test_depend>launch_testing_ament_cmake</test_depend>
+  <test_depend>launch_testing_ros</test_depend>
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+  <test_depend>python3-numpy</test_depend>
+  <test_depend>python3-pytest</test_depend>
+  <test_depend>nav_msgs</test_depend>
+  <test_depend>sensor_msgs</test_depend>
+  <test_depend>std_msgs</test_depend>
+  <test_depend>tf2_ros</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

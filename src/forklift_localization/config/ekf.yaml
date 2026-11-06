@@ -1,0 +1,75 @@
+# robot_localization EKF: the only publisher of odom -> base_footprint (docs/system_design.md D7).
+#
+# Fused inputs (and the reasons):
+#   wheel odometry  vx, vy, vyaw  - encoder velocities. vy = 0 gives the non-holonomic
+#                                   constraint. The odometry *pose* is NOT fused. It is the
+#                                   integral of the same velocities (the data would count twice).
+#   IMU             vyaw          - gyro yaw rate. It does not depend on wheel slip.
+# Inputs that are not fused:
+#   IMU orientation - the IMU orientation of Gazebo uses the world as reference (it is
+#                     almost the ground truth). A real low-cost IMU has no absolute yaw
+#                     without drift.
+#   IMU accel       - a double integral of the accelerometer noise adds errors at forklift speeds.
+ekf_filter_node:
+  ros__parameters:
+    frequency: 30.0
+    sensor_timeout: 0.2
+    # The wheel odometry (controller_manager) and the IMU (gz bridge) come from different
+    # processes. Sometimes, the odometry arrived in bursts up to approximately 350 ms late.
+    # Without smoothing, the EKF discards measurements that are older than its last update (from
+    # the IMU). It then loses that motion (test/test_ekf_lagged_odometry.py: 0.85 m, not 1.00 m).
+    # With smoothing, the filter goes back through its history and fuses the measurements.
+    smooth_lagged_data: true
+    history_length: 1.0
+    two_d_mode: true
+    publish_tf: true
+    print_diagnostics: true
+
+    map_frame: map
+    odom_frame: odom
+    base_link_frame: base_footprint
+    world_frame: odom
+
+    # Process noise: the defaults of robot_localization, but not for the acceleration states
+    # (the last 3). No sensor measures them here (accel is not fused). With the default noise
+    # on these states, the filter sometimes calculated an odom position that moved 0.3-0.5 m
+    # *rearward* while its vx was positive. This occurred at the start of the first move (6 of
+    # 10 runs; AMCL showed "spikes" of up to 55 cm). With ax/ay/az set to fixed values: 0 of 6
+    # runs. With no IMU fused: also 0 of 6 runs.
+    process_noise_covariance: [
+      0.05, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 0.05, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 0.0, 0.06, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0, 0.03, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0, 0.0, 0.03, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.06, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.025, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.025, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.04, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.02, 0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1e-09, 0.0, 0.0,
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1e-09, 0.0,
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1e-09]
+
+    odom0: /forklift_base_controller/odom
+    #            x      y      z      roll   pitch  yaw
+    #            vx     vy     vz     vroll  vpitch vyaw
+    #            ax     ay     az
+    odom0_config: [false, false, false, false, false, false,
+                   true,  true,  false, false, false, true,
+                   false, false, false]
+    odom0_differential: false
+    # The queues hold 1 s of data or more. A burst that is 350 ms late contains approximately
+    # 17 odometry messages. The default queue of 10 overflowed and discarded the oldest
+    # messages without a warning (the test found this).
+    odom0_queue_size: 50
+
+    imu0: /imu/data
+    imu0_config: [false, false, false, false, false, false,
+                  false, false, false, false, false, true,
+                  false, false, false]
+    imu0_differential: false
+    imu0_queue_size: 100
+    imu0_remove_gravitational_acceleration: true

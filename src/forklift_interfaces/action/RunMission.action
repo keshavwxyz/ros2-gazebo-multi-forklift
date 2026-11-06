@@ -1,0 +1,13 @@
+# Do the pick-and-place mission for more than one box.
+string[] box_ids              # empty = all boxes in the task configuration, in the configured sequence
+bool skip_return_home         # false (default) = go back home at the end, as before
+---
+bool success
+string[] boxes_delivered
+string[] boxes_failed
+string message
+---
+string state
+string current_box_id
+uint32 boxes_delivered_count
+uint32 boxes_total

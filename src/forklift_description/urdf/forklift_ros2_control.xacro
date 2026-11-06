@@ -1,0 +1,60 @@
+<?xml version="1.0"?>
+<!--
+  ros2_control hardware description. The list of joints and interfaces is the same for
+  each backend. Only the hardware plugin is different. Thus, the controllers and the
+  autonomy code do not change between mock (CI), Gazebo and (future) Isaac Sim.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:macro name="forklift_ros2_control" params="p backend">
+    <xacro:property name="plugins" value="${dict(mock='mock_components/GenericSystem',
+                                                 gazebo='gz_ros2_control/GazeboSimSystem')}"/>
+    <xacro:unless value="${backend in plugins}">
+      <xacro:element xacro:name="${xacro.fatal('sim_backend must be one of ' + str(python.sorted(plugins.keys())) + ', got: ' + backend)}"/>
+    </xacro:unless>
+    <xacro:property name="dw" value="${p['drive_wheel']}"/>
+    <xacro:property name="lf" value="${p['lift']}"/>
+
+    <ros2_control name="ForkliftSystem" type="system">
+      <hardware>
+        <plugin>${plugins[backend]}</plugin>
+        <xacro:if value="${backend == 'mock'}">
+          <!-- integrate the velocity commands into position. Thus, odometry operates without a simulator.-->
+          <param name="calculate_dynamics">true</param>
+        </xacro:if>
+      </hardware>
+
+      <xacro:macro name="drive_joint" params="name">
+        <joint name="${name}">
+          <command_interface name="velocity">
+            <param name="min">${-dw['max_velocity']}</param>
+            <param name="max">${dw['max_velocity']}</param>
+          </command_interface>
+          <state_interface name="position"/>
+          <state_interface name="velocity"/>
+        </joint>
+      </xacro:macro>
+      <xacro:drive_joint name="left_drive_wheel_joint"/>
+      <xacro:drive_joint name="right_drive_wheel_joint"/>
+
+      <!-- Velocity commands, as a hydraulic lift valve that controls the flow. Position commands
+           were not used: in Gazebo/DART, if a position loop requests a velocity above the
+           velocity limit of the joint, the joint stops. It does not saturate (docs/system_design.md D4).-->
+      <joint name="fork_lift_joint">
+        <command_interface name="velocity">
+          <param name="min">${-lf['max_velocity']}</param>
+          <param name="max">${lf['max_velocity']}</param>
+        </command_interface>
+        <!-- Starts above the lower hard stop: in Gazebo/DART, a lift joint on its
+             limit can lock there (docs/gazebo_setup.md).-->
+        <state_interface name="position">
+          <param name="initial_value">${lf['initial_height']}</param>
+        </state_interface>
+        <state_interface name="velocity"/>
+        <!-- effort = force of the lift actuator; the load sensing uses this signal-->
+        <state_interface name="effort"/>
+      </joint>
+    </ros2_control>
+  </xacro:macro>
+
+</robot>

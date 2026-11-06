@@ -1,0 +1,12 @@
+# Move the fork carriage to an absolute height (m, lift joint coordinate).
+# The server rejects goals outside the joint limits. It never clamps them silently.
+float64 height
+float64 max_velocity          # m/s, 0 = use the configured default
+float64 tolerance             # m,   0 = use the configured default
+---
+bool success
+float64 final_height
+string message
+---
+float64 current_height
+float64 error

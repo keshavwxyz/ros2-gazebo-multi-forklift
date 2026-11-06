@@ -1,0 +1,11 @@
+# Ask the coordinator for the ownership of the task of a box. The registry is the
+# authoritative source. A maximum of one robot owns a task. If two claims for the same box
+# occur at the same time, the registry grants exactly one claim.
+string robot_id
+string box_id
+---
+bool granted
+string task_id
+string assignment_id
+string owner                  # current owner (the requester if the claim is granted)
+string reason

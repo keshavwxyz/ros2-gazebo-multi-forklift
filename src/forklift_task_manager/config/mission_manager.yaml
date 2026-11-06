@@ -1,0 +1,27 @@
+# Mission manager (forklift_task_manager/mission_node.py). The boxes, places and destinations
+# come from warehouse_mission.yaml. This file contains only the execution policy.
+mission_manager:
+  ros__parameters:
+    use_sim_time: true
+    autostart: false               # true: start the mission one time, when the node is ready
+    # Number of new tries for each state after a temporary failure (mission_fsm.RETRYABLE gives the codes).
+    retries:
+      INITIALIZE: 2
+      CHECK_SYSTEMS: 2
+      LOCALIZE: 2
+      NAVIGATE_TO_PICKUP: 2
+      DETECT_AND_IDENTIFY_BOX: 2
+      PICKUP: 1
+      NAVIGATE_TO_DESTINATION: 2
+      PLACE_BOX: 1
+      RETURN_HOME: 2
+    server_timeout: 60.0           # s, for each INITIALIZE attempt
+    sensor_timeout: 10.0           # s, each sensor must publish in this time
+    localize_timeout: 20.0
+    max_position_variance: 0.05    # m^2 (AMCL x and y)
+    max_yaw_variance: 0.05         # rad^2
+    detect_window: 6.0             # s of QR detections to wait for at the pickup
+    navigation_timeout: 400.0      # s for each Nav2 goal
+    skill_timeout: 400.0           # s for each pickup or placement
+    retry_delay: 2.0               # s before a new try of a failed state
+    record_dir: ~/.ros/forklift_missions

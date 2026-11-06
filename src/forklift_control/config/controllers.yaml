@@ -1,0 +1,63 @@
+# ros2_control controllers. All backends use this file (mock, Gazebo, later Isaac Sim).
+# The wheel geometry must agree with forklift_description/config/forklift_params.yaml.
+# A unit test (test/test_config_consistency.py) makes sure that they agree.
+
+controller_manager:
+  ros__parameters:
+    update_rate: 50  # Hz
+
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+    forklift_base_controller:
+      type: diff_drive_controller/DiffDriveController
+
+    fork_lift_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+
+forklift_base_controller:
+  ros__parameters:
+    left_wheel_names: ["left_drive_wheel_joint"]
+    right_wheel_names: ["right_drive_wheel_joint"]
+    wheel_separation: 0.80
+    wheel_radius: 0.18
+
+    publish_rate: 50.0
+    odom_frame_id: odom
+    base_frame_id: base_footprint
+    # The EKF (forklift_localization) publishes odom -> base_footprint.
+    enable_odom_tf: false
+    open_loop: false            # odometry from the wheel encoder feedback
+    cmd_vel_timeout: 0.5        # s; if a command is older than this, the robot stops (dead-man)
+
+    # Encoder odometry: high confidence in vx and yaw rate. The other planar components are not used.
+    pose_covariance_diagonal: [0.001, 0.001, 1000000.0, 1000000.0, 1000000.0, 0.01]
+    twist_covariance_diagonal: [0.0025, 0.0025, 1000000.0, 1000000.0, 1000000.0, 0.01]
+
+    # Hard limits of the actuators. Navigation applies smaller limits (Phase 5).
+    linear.x.max_velocity: 1.0
+    linear.x.min_velocity: -0.5
+    linear.x.max_acceleration: 0.5
+    linear.x.min_acceleration: -0.5
+    linear.x.max_deceleration: -0.5
+    angular.z.max_velocity: 0.8
+    angular.z.min_velocity: -0.8
+    angular.z.max_acceleration: 1.0
+    angular.z.min_acceleration: -1.0
+
+# Lift: trajectory controller on the velocity interface. The lift_controller node sends
+# trapezoidal profiles. The joint velocity limit is the maximum speed of these profiles.
+# This controller follows the profiles with velocity feed-forward and P feedback. It holds
+# the last point. Thus, the forks stay at their position if the supervision node stops.
+fork_lift_controller:
+  ros__parameters:
+    joints: ["fork_lift_joint"]
+    command_interfaces: ["velocity"]
+    state_interfaces: ["position", "velocity"]
+    allow_nonzero_velocity_at_trajectory_end: false
+    gains:
+      fork_lift_joint: {p: 2.0, i: 0.0, d: 0.0, ff_velocity_scale: 1.0}
+    constraints:
+      stopped_velocity_tolerance: 0.01
+      goal_time: 1.0
+      fork_lift_joint: {trajectory: 0.0, goal: 0.01}

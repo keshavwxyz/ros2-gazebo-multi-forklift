@@ -1,0 +1,36 @@
+# Put the carried load at a destination. The skill starts at the staging pose of the
+# destination. If the robot is at a different location, Nav2 first moves it there (loaded
+# footprint). Sequence: validate the destination -> forks to placement height -> make sure
+# that the platform is there with the LiDAR -> align (localization) -> move in -> lower until
+# the platform holds the load -> make sure of the release (lift effort) -> move rearward ->
+# lower the forks -> make sure with the camera that the QR code of the box is at the destination.
+string box_id
+string destination_id
+---
+# Error codes (constants of the Result message)
+uint8 ERROR_NONE = 0
+uint8 ERROR_NOT_STATIONARY = 1
+uint8 ERROR_DESTINATION_INVALID = 2
+uint8 ERROR_DESTINATION_MISMATCH = 3
+uint8 ERROR_NOT_CARRYING = 4
+uint8 ERROR_DESTINATION_NOT_FOUND = 5
+uint8 ERROR_ALIGNMENT_FAILED = 6
+uint8 ERROR_INSERTION_BLOCKED = 7
+uint8 ERROR_LIFT_FAILED = 8
+uint8 ERROR_PLACEMENT_NOT_VERIFIED = 9
+uint8 ERROR_LOCALIZATION_UNAVAILABLE = 10
+uint8 ERROR_TIMEOUT = 11
+uint8 ERROR_CANCELED = 12
+uint8 ERROR_NAVIGATION_FAILED = 13
+uint8 ERROR_REAR_BLOCKED = 14          # the rear LiDAR stopped the reverse motion for too long
+
+bool success
+uint8 error_code
+string message
+float32 placement_error         # m, box position (that the camera sees) compared with the destination
+float32 placement_yaw_error_deg
+---
+string phase
+float32 lateral_error
+float32 heading_error_deg
+float32 distance_remaining

@@ -1,0 +1,42 @@
+# Fleet coordinator (forklift_fleet/coordinator_node.py). The boxes, places and destinations
+# come from forklift_task_manager/config/warehouse_mission.yaml (shared). This file contains
+# the robots and the coordination policy. Distances are in m. Times are in s (ROS / simulation time).
+fleet_coordinator:
+  ros__parameters:
+    use_sim_time: true
+    robots: [forklift_1, forklift_2]
+    # Home (parking) pose for each robot in the map frame: x, y, yaw. This is also the waiting location of the robot.
+    home.forklift_1: [-6.0, 0.0, 0.0]
+    home.forklift_2: [5.0, 0.0, 3.14159]
+    autostart: false
+    # --- communication ---
+    heartbeat_timeout: 5.0         # if there is no RobotStatus for this time -> the robot is not available
+    ack_timeout: 8.0               # if the RunMission goal is not accepted in this time -> try again
+    ack_retries: 2                 # then the robot is out of service for comm_cooldown
+    comm_cooldown: 30.0
+    max_task_attempts: 2           # if a task fails this number of times (before the lift) -> FAILED
+    mission_timeout: 3000.0
+    # --- allocation (allocator.py; penalties are in metres of travel) ---
+    switch_penalty: 3.0
+    congestion_penalty: 4.0
+    congestion_radius: 3.5
+    recovery_penalty: 5.0
+    detour_factor: 1.3
+    # --- zones and conflicts (conflicts.py) ---
+    zone_radius: 2.0               # around the point between the staging pose and the load of a place
+    reservation_ttl: 20.0          # renewed at each cycle while necessary; old reservations expire
+    zone_approach_margin: 3.5      # if a zone is not granted, wait at this distance outside it
+    path_clearance: 2.2            # if the planned paths are nearer than this = conflict
+    path_lookahead: 5.0
+    conflict_check_distance: 9.0   # the coordinator examines only pairs that are nearer than this
+    resume_distance: 3.0
+    deadlock_timeout: 40.0         # yield for this time while the priority robot cannot move
+    deadlock_window: 15.0
+    deadlock_min_progress: 0.3
+    backoff_distance: 1.0          # deadlock recovery: the yielding robot moves rearward (the rear LiDAR protects it)
+    escalate_after: 180.0          # if a conflict is not solved in this time -> ESCALATED (reported)
+    rear_conflict_range: 3.0       # a robot at this distance behind a rear-blocked robot is involved
+    rear_wait_before_move: 8.0     # then the coordinator sends the robot behind to its waiting location
+    # --- parking ---
+    home_tolerance: 0.25           # m, "at home" from the estimate of the robot (Nav2: 8 cm on success)
+    home_attempts: 3               # number of times to try again a failed home navigation

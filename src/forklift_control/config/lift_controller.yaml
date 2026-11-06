@@ -1,0 +1,22 @@
+lift_controller:
+  ros__parameters:
+    joint_name: fork_lift_joint
+    trajectory_topic: /fork_lift_controller/joint_trajectory
+    # The node reads the joint limits from /robot_description (one source for these values).
+    default_velocity: 0.15        # m/s, cruise speed of the profile (the URDF limit is the hard maximum)
+    max_acceleration: 0.3         # m/s^2, acceleration of the profile
+    waypoint_period: 0.1          # s between two trajectory waypoints
+    default_tolerance: 0.005      # m
+    settle_velocity: 0.01         # m/s, if |v| is less than this, the lift is stopped
+    control_rate: 50.0            # Hz
+    state_publish_rate: 20.0      # Hz
+    timeout_margin: 3.0           # s, added to the expected travel time
+    tracking_error_limit: 0.05    # m between the set-point and the measured height...
+    tracking_error_time: 1.0      # ...for this time or more = stall or obstruction fault
+    joint_state_timeout: 0.5      # s with no /joint_states = sensor fault
+    # The load sensing uses the effort of the lift actuator (equivalent to hydraulic pressure).
+    # Gazebo gives the constraint force of the joint: with empty forks, it is
+    # 1079.1 N = 110 kg (carriage + forks) x g.
+    load_sensing_enabled: true
+    empty_effort: 0.0             # N; if <= 0, the node calculates it from the masses in robot_description
+    load_threshold_kg: 5.0

@@ -1,0 +1,52 @@
+# Pickup and placement skills (forklift_control/load_handler.py, docs/load_handling.md).
+load_handler:
+  ros__parameters:
+    mission_file: ''                 # '' = default mission of forklift_task_manager
+    # Robot geometry (test_config_consistency.py compares it with forklift_description)
+    fork_min_height: 0.05            # height of the fork top above the floor when lift q = 0
+    fork_thickness: 0.04
+    heel_x: 0.38                     # fork heel (front face of the shank) in base_footprint
+    lidar_x: 0.25                    # LiDAR in base_footprint
+    # Fork heights (the lift set-points come from these values and the load geometry)
+    insert_fork_top: 0.07            # the pocket is from 0 to 0.12 m: clearance is 3 cm to the floor and 5 cm to the deck
+    transport_clearance: 0.18        # pallet bottom during transport (higher than the LiDAR plane at 0.12)
+    place_clearance: 0.05            # pallet bottom above the platform when the robot moves in
+    release_gap: 0.05                # fork top below the deck underside after the release
+    # Docking geometry
+    heel_gap: 0.02                   # distance from the shanks to the pallet front face
+    pre_insert_tip_gap: 0.10         # distance from the fork tips to the pallet before the insertion
+    # Alignment tolerances before the fork insertion. The pocket clearance is 0.10 m on each
+    # side. During the last 1.1 m (approximately), the camera cannot see the QR code. Thus, a
+    # heading error causes a lateral offset at the fork tips.
+    lateral_tolerance: 0.03
+    heading_tolerance_deg: 2.0
+    alignment_retries: 2
+    retry_backoff: 0.4               # m, the robot moves rearward this distance before it tries the alignment again
+    # Checks of identity, location and placement
+    location_tolerance: 0.30         # maximum distance between the box and its configured pickup location
+    location_yaw_tolerance_deg: 15.0
+    placement_tolerance: 0.15        # box (that the camera sees) compared with the destination after the placement
+    placement_yaw_tolerance_deg: 8.0
+    platform_face_tolerance: 0.12    # LiDAR range to the platform face compared with the map value
+    platform_reach: 0.30             # front of the mast upright (x 0.26 + 0.04), below the deck height
+    platform_face_margin: 0.04       # the insertion stops at this distance from the measured face
+    detection_timeout: 8.0
+    min_detections: 5
+    # Speeds (m/s). Reverse motion is short and slow (the LiDAR cannot see the rear).
+    approach_speed: 0.12
+    insert_speed: 0.06
+    reverse_speed: 0.06
+    # Supervision
+    stationary_timeout: 5.0
+    stall_time: 2.0                  # motion is commanded but the robot does not move -> blocked
+    lift_timeout: 30.0
+    load_settle_time: 1.0
+    load_low_fraction: 0.5           # the supported load must be 0.5 to 2.0 x the configured mass
+    load_high_fraction: 2.0
+    release_max_kg: 5.0              # below this value, the forks are empty
+    verify_timeout: 8.0
+    # The skills start at the staging pose. If the robot is farther than this, Nav2 moves it there first.
+    staging_tolerance: 0.25
+    staging_yaw_tolerance_deg: 10.0
+    max_docking_segment: 3.0         # the docking controller never moves the robot farther than this
+    navigation_timeout: 300.0

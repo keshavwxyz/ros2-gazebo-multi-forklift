@@ -1,0 +1,321 @@
+# Nav2 configuration for the differential-drive forklift (docs/navigation.md).
+#
+# Command chain: controller_server / behavior_server -> cmd_vel_nav -> velocity_smoother
+#   -> cmd_vel_smoothed -> collision_monitor -> /cmd_vel/nav -> twist_mux -> drive controller.
+# All velocity topics are geometry_msgs/TwistStamped (diff_drive_controller in Jazzy).
+# Odometry: /odometry/filtered (EKF). LiDAR: /scan_filtered (fork shanks removed).
+# The speed limits obey the 0.5 m/s^2 braking limit of the tip-over analysis.
+
+amcl:
+  ros__parameters:
+    use_sim_time: true
+    base_frame_id: base_footprint
+    odom_frame_id: odom
+    global_frame_id: map
+    scan_topic: /scan_filtered
+    robot_model_type: nav2_amcl::DifferentialMotionModel
+    tf_broadcast: true
+    transform_tolerance: 0.5
+    # lifecycle_starter publishes the start pose on /initialpose with an explicit
+    # covariance (5 cm, 2 deg). The parameter-based initialization of AMCL has no covariance setting.
+    set_initial_pose: false
+    always_reset_initial_pose: false
+    laser_model_type: likelihood_field
+    laser_likelihood_max_dist: 2.0
+    laser_min_range: 0.3
+    laser_max_range: 12.0
+    max_beams: 190             # half of the 381 beams: more constraints where the geometry has few features
+    min_particles: 500
+    max_particles: 2000
+    pf_err: 0.05
+    pf_z: 0.99
+    update_min_d: 0.10
+    update_min_a: 0.10
+    resample_interval: 1
+    recovery_alpha_fast: 0.0
+    recovery_alpha_slow: 0.0
+    # Odometry noise. The measured error of the EKF-fused odometry is less than 1 cm in 2 m and
+    # less than 0.2 deg for each turn (docs/sensor_setup.md). With low alphas, the odometry
+    # holds the estimate where the front LiDAR sees few features (for example, at home, in the
+    # direction of the hall). With 0.05, a temporary error of 16.5 cm occurred there.
+    alpha1: 0.02
+    alpha2: 0.02
+    alpha3: 0.02
+    alpha4: 0.02
+    alpha5: 0.02
+    z_hit: 0.5
+    z_rand: 0.5
+    z_max: 0.05
+    z_short: 0.05
+    sigma_hit: 0.2
+
+map_server:
+  ros__parameters:
+    use_sim_time: true
+    yaml_filename: ""          # navigation.launch.py sets this value
+
+bt_navigator:
+  ros__parameters:
+    use_sim_time: true
+    global_frame: map
+    robot_base_frame: base_footprint
+    odom_topic: /odometry/filtered
+    bt_loop_duration: 10
+    default_server_timeout: 20
+    wait_for_service_timeout: 1000
+    navigators: ["navigate_to_pose", "navigate_through_poses"]
+    navigate_to_pose:
+      plugin: "nav2_bt_navigator::NavigateToPoseNavigator"
+    navigate_through_poses:
+      plugin: "nav2_bt_navigator::NavigateThroughPosesNavigator"
+    # default BT: navigate_to_pose_w_replanning_and_recovery.xml
+    # recoveries: clear costmaps, spin, wait, back up (0.30 m at 0.15 m/s)
+
+controller_server:
+  ros__parameters:
+    use_sim_time: true
+    enable_stamped_cmd_vel: true
+    odom_topic: /odometry/filtered
+    controller_frequency: 20.0
+    costmap_update_timeout: 0.30
+    min_x_velocity_threshold: 0.001
+    min_y_velocity_threshold: 0.5
+    min_theta_velocity_threshold: 0.001
+    failure_tolerance: 0.3
+    progress_checker_plugins: ["progress_checker"]
+    goal_checker_plugins: ["goal_checker"]
+    controller_plugins: ["FollowPath"]
+    progress_checker:
+      # Progress of the pose (not only the position): long rotations in place are progress.
+      plugin: "nav2_controller::PoseProgressChecker"
+      required_movement_radius: 0.25
+      required_movement_angle: 0.3
+      movement_time_allowance: 15.0
+    goal_checker:
+      plugin: "nav2_controller::SimpleGoalChecker"
+      xy_goal_tolerance: 0.08
+      yaw_goal_tolerance: 0.06     # rad (3.4 deg); the camera approach corrects the remaining error
+      stateful: true
+    FollowPath:
+      plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
+      desired_linear_vel: 0.4
+      lookahead_dist: 0.8
+      min_lookahead_dist: 0.5
+      max_lookahead_dist: 1.2
+      lookahead_time: 1.5
+      use_velocity_scaled_lookahead_dist: false
+      transform_tolerance: 0.2
+      min_approach_linear_velocity: 0.08
+      approach_velocity_scaling_dist: 0.8
+      use_collision_detection: true      # full footprint (with the forks) along the path
+      max_allowed_time_to_collision_up_to_carrot: 1.5
+      use_regulated_linear_velocity_scaling: true
+      use_cost_regulated_linear_velocity_scaling: false
+      regulated_linear_scaling_min_radius: 0.9
+      regulated_linear_scaling_min_speed: 0.15
+      use_fixed_curvature_lookahead: false
+      use_rotate_to_heading: true        # turn in place first (differential drive), then move
+      rotate_to_heading_angular_vel: 0.5
+      rotate_to_heading_min_angle: 0.6
+      max_angular_accel: 0.8
+      allow_reversing: false             # the LiDAR does not see the rear of the robot
+      max_robot_pose_search_dist: 10.0
+      interpolate_curvature_after_goal: false
+      cost_scaling_dist: 0.6
+      cost_scaling_gain: 1.0
+      inflation_cost_scaling_factor: 3.0
+
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      use_sim_time: true
+      global_frame: odom
+      robot_base_frame: base_footprint
+      update_frequency: 5.0
+      publish_frequency: 2.0
+      rolling_window: true
+      width: 6
+      height: 6
+      resolution: 0.05
+      # Footprint with the forks. footprint_manager changes it to `loaded` at runtime.
+      footprint: "[[1.41, 0.28], [0.41, 0.28], [0.41, 0.49], [0.21, 0.49], [0.21, 0.61], [-0.21, 0.61], [-0.21, 0.49], [-1.25, 0.49], [-1.25, -0.49], [-0.21, -0.49], [-0.21, -0.61], [0.21, -0.61], [0.21, -0.49], [0.41, -0.49], [0.41, -0.28], [1.41, -0.28]]"
+      footprint_padding: 0.0
+      # Static layer also: the LiDAR cannot see behind the robot. Thus, recoveries that move
+      # rearward (BackUp) must get the walls behind the robot from the map.
+      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
+      static_layer:
+        plugin: "nav2_costmap_2d::StaticLayer"
+        map_subscribe_transient_local: true
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: true
+        footprint_clearing_enabled: true
+        observation_sources: scan scan_rear
+        scan:
+          topic: /scan_filtered
+          data_type: "LaserScan"
+          max_obstacle_height: 2.0
+          clearing: true
+          marking: true
+          raytrace_max_range: 6.0
+          obstacle_max_range: 5.5
+          obstacle_min_range: 0.0
+          inf_is_valid: false
+        # Rear LiDAR: obstacles behind the robot (reverse motion, rotation, BackUp recovery).
+        scan_rear:
+          topic: /scan_rear
+          data_type: "LaserScan"
+          max_obstacle_height: 2.0
+          clearing: true
+          marking: true
+          raytrace_max_range: 6.0
+          obstacle_max_range: 5.5
+          obstacle_min_range: 0.0
+          inf_is_valid: false
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        inflation_radius: 0.6
+        cost_scaling_factor: 4.0
+      always_send_full_costmap: true
+
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      use_sim_time: true
+      global_frame: map
+      robot_base_frame: base_footprint
+      update_frequency: 1.0
+      publish_frequency: 1.0
+      resolution: 0.05
+      track_unknown_space: true
+      # Planner model: a circle around the widest part of the footprint (the drive-wheel
+      # collision spheres, 0.61 m) plus 5 cm. Paths keep a lateral distance of 0.66 m or more
+      # from obstacles. For the long axis, the local controller does collision checks with the
+      # full footprint, and the staging poses have clearance for the turning circle.
+      robot_radius: 0.66
+      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
+      static_layer:
+        plugin: "nav2_costmap_2d::StaticLayer"
+        map_subscribe_transient_local: true
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: true
+        observation_sources: scan scan_rear
+        scan:
+          topic: /scan_filtered
+          data_type: "LaserScan"
+          max_obstacle_height: 2.0
+          clearing: true
+          marking: true
+          raytrace_max_range: 8.0
+          obstacle_max_range: 7.5
+          inf_is_valid: false
+        scan_rear:
+          topic: /scan_rear
+          data_type: "LaserScan"
+          max_obstacle_height: 2.0
+          clearing: true
+          marking: true
+          raytrace_max_range: 8.0
+          obstacle_max_range: 7.5
+          inf_is_valid: false
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        inflation_radius: 1.2
+        cost_scaling_factor: 2.5
+      always_send_full_costmap: true
+
+planner_server:
+  ros__parameters:
+    use_sim_time: true
+    expected_planner_frequency: 2.0
+    planner_plugins: ["GridBased"]
+    GridBased:
+      plugin: "nav2_smac_planner::SmacPlanner2D"
+      tolerance: 0.15
+      downsample_costmap: false
+      allow_unknown: true
+      max_iterations: 1000000
+      max_on_approach_iterations: 1000
+      max_planning_time: 2.0
+      cost_travel_multiplier: 2.5   # the preferred path is in the middle of the aisles
+      use_final_approach_orientation: false
+      smoother:
+        max_iterations: 1000
+        w_smooth: 0.3
+        w_data: 0.2
+        tolerance: 1.0e-10
+
+behavior_server:
+  ros__parameters:
+    use_sim_time: true
+    enable_stamped_cmd_vel: true
+    local_costmap_topic: local_costmap/costmap_raw
+    global_costmap_topic: global_costmap/costmap_raw
+    local_footprint_topic: local_costmap/published_footprint
+    global_footprint_topic: global_costmap/published_footprint
+    cycle_frequency: 10.0
+    behavior_plugins: ["spin", "backup", "drive_on_heading", "wait"]
+    spin:
+      plugin: "nav2_behaviors::Spin"
+    backup:
+      plugin: "nav2_behaviors::BackUp"
+    drive_on_heading:
+      plugin: "nav2_behaviors::DriveOnHeading"
+    wait:
+      plugin: "nav2_behaviors::Wait"
+    local_frame: odom
+    global_frame: map
+    robot_base_frame: base_footprint
+    transform_tolerance: 0.2
+    simulate_ahead_time: 2.0
+    max_rotational_vel: 0.5
+    min_rotational_vel: 0.2
+    rotational_acc_lim: 0.8
+
+velocity_smoother:
+  ros__parameters:
+    use_sim_time: true
+    enable_stamped_cmd_vel: true
+    smoothing_frequency: 20.0
+    scale_velocities: false
+    feedback: "OPEN_LOOP"
+    max_velocity: [0.4, 0.0, 0.5]
+    min_velocity: [-0.15, 0.0, -0.5]
+    max_accel: [0.4, 0.0, 0.8]
+    max_decel: [-0.5, 0.0, -0.8]
+    odom_topic: /odometry/filtered
+    odom_duration: 0.1
+    deadband_velocity: [0.0, 0.0, 0.0]
+    velocity_timeout: 1.0
+
+collision_monitor:
+  ros__parameters:
+    use_sim_time: true
+    enable_stamped_cmd_vel: true
+    base_frame_id: base_footprint
+    odom_frame_id: odom
+    cmd_vel_in_topic: cmd_vel_smoothed
+    cmd_vel_out_topic: /cmd_vel/nav
+    state_topic: collision_monitor_state
+    transform_tolerance: 0.2
+    source_timeout: 1.0
+    base_shift_correction: true
+    stop_pub_timeout: 2.0
+    polygons: ["FootprintApproach"]
+    FootprintApproach:
+      type: "polygon"
+      action_type: "approach"
+      # Uses the current footprint (loaded or unloaded).
+      footprint_topic: /local_costmap/published_footprint
+      time_before_collision: 1.2
+      simulation_time_step: 0.1
+      min_points: 4
+      visualize: true
+      polygon_pub_topic: collision_monitor_footprint
+      enabled: true
+    observation_sources: ["scan"]
+    scan:
+      type: "scan"
+      topic: /scan_filtered
+      enabled: true

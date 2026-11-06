@@ -1,0 +1,102 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+  - Class: rviz_common/Views
+    Name: Views
+Visualization Manager:
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Grid
+      Cell Size: 1.0
+      Plane Cell Count: 20
+      Reference Frame: map
+      Value: true
+    - Alpha: 1
+      Class: rviz_default_plugins/RobotModel
+      Description Topic:
+        Value: /robot_description
+      Name: RobotModel
+      Value: true
+    - Class: rviz_default_plugins/TF
+      Name: TF
+      Show Names: false
+      Marker Scale: 0.4
+      Value: true
+    - Class: rviz_default_plugins/LaserScan
+      Name: LaserScan
+      Topic:
+        Value: /scan_filtered
+        Reliability Policy: Best Effort
+      Size (m): 0.05
+      Color Transformer: FlatColor
+      Color: 255; 0; 0
+      Value: true
+    - Class: rviz_default_plugins/Odometry
+      Name: FilteredOdometry
+      Topic:
+        Value: /odometry/filtered
+      Keep: 50
+      Value: true
+    - Class: rviz_default_plugins/Image
+      Name: Camera
+      Topic:
+        Value: /camera/image_raw
+        Reliability Policy: Best Effort
+      Value: true
+    - Class: rviz_default_plugins/Map
+      Name: Map
+      Topic:
+        Value: /map
+        Durability Policy: Transient Local
+      Value: true
+    - Class: rviz_default_plugins/Map
+      Name: GlobalCostmap
+      Color Scheme: costmap
+      Alpha: 0.4
+      Topic:
+        Value: /global_costmap/costmap
+      Value: true
+    - Class: rviz_default_plugins/Map
+      Name: LocalCostmap
+      Color Scheme: costmap
+      Alpha: 0.6
+      Topic:
+        Value: /local_costmap/costmap
+      Value: true
+    - Class: rviz_default_plugins/Path
+      Name: Plan
+      Topic:
+        Value: /plan
+      Color: 0; 200; 255
+      Value: true
+    - Class: rviz_default_plugins/Polygon
+      Name: Footprint
+      Topic:
+        Value: /local_costmap/published_footprint
+      Color: 255; 255; 0
+      Value: true
+  Global Options:
+    Background Color: 48; 48; 48
+    Fixed Frame: map
+  Tools:
+    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/SetInitialPose
+    - Class: rviz_default_plugins/SetGoal
+  Value: true
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 8.0
+      Focal Point:
+        X: 1.0
+        Y: 0.0
+        Z: 0.5
+      Name: Current View
+      Pitch: 0.6
+      Target Frame: base_footprint
+      Value: Orbit (rviz)
+      Yaw: 3.6
+Window Geometry:
+  Height: 900
+  Width: 1400

@@ -1,0 +1,32 @@
+# This workflow builds the workspace. It also runs the tests that do not use a simulator
+# (tiers 1 and 2). The Gazebo simulation tests (tier 3) use GPU/EGL rendering. Hosted
+# runners do not have it. Thus, the build option -DFORKLIFT_SIM_TESTS=OFF removes these
+# tests, and the report shows them as NOT EXECUTED.
+name: ci
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-24.04
+    container: ros:jazzy-ros-base-noble
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          apt-get update
+          rosdep update --rosdistro jazzy
+          rosdep install --from-paths src --ignore-src -y --rosdistro jazzy
+      - name: Build
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          colcon build --event-handlers console_direct- --cmake-args -DFORKLIFT_SIM_TESTS=OFF
+      - name: Test
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          colcon test --event-handlers console_direct-
+          colcon test-result --verbose

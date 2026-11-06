@@ -1,0 +1,190 @@
+<?xml version="1.0"?>
+<!--
+  Gazebo Sim (Harmonic) adapter for the forklift description.
+
+  forklift_description/urdf/forklift.urdf.xacro includes this file through its `extensions`
+  argument. This file uses the `params` property (forklift_params.yaml) from that file. All
+  items that are specific to Gazebo are here: the ros2_control plugin, contact properties,
+  sensor models and the ground-truth publisher (for evaluation only).
+
+  The Gazebo topics have the prefix /<robot_name>/... The bridge maps them to the standard
+  ROS topics (config/gz_bridge.yaml for the default robot). Thus, the autonomy nodes never
+  see the simulator names.
+
+  Arguments (defaults = the initial single robot):
+    controllers_file  absolute path to the YAML file of the ros2_control controllers
+    robot_name        topic prefix in Gazebo (one for each robot instance)     [forklift]
+    frame_prefix      added before each sensor frame id, for example "forklift_1/"  []
+    ros_namespace     namespace of the controller manager of this robot       []
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:arg name="controllers_file" default=""/>
+  <xacro:arg name="robot_name" default="forklift"/>
+  <xacro:arg name="frame_prefix" default=""/>
+  <xacro:arg name="ros_namespace" default=""/>
+  <xacro:property name="rn" value="$(arg robot_name)"/>
+  <xacro:property name="fp" value="$(arg frame_prefix)"/>
+  <xacro:property name="ros_ns" value="$(arg ros_namespace)"/>
+  <xacro:property name="sn" value="${params['sensors']}"/>
+
+  <!-- ============================ ros2_control ============================ -->
+  <gazebo>
+    <plugin filename="gz_ros2_control-system" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+      <parameters>$(arg controllers_file)</parameters>
+      <xacro:if value="${ros_ns != ''}">
+        <ros><namespace>${ros_ns}</namespace></ros>
+      </xacro:if>
+    </plugin>
+  </gazebo>
+
+  <!-- ============================ Contacts ============================ -->
+  <!-- Drive wheels: rubber on concrete.-->
+  <xacro:macro name="wheel_contact" params="link">
+    <gazebo reference="${link}">
+      <mu1>1.0</mu1>
+      <mu2>1.0</mu2>
+      <kp>1.0e7</kp>
+      <kd>1.0e3</kd>
+      <minDepth>0.001</minDepth>
+    </gazebo>
+  </xacro:macro>
+  <xacro:wheel_contact link="left_drive_wheel_link"/>
+  <xacro:wheel_contact link="right_drive_wheel_link"/>
+
+  <!-- Rear support spheres: almost no friction. Thus, they operate as free casters.-->
+  <xacro:macro name="caster_contact" params="link">
+    <gazebo reference="${link}">
+      <mu1>0.01</mu1>
+      <mu2>0.01</mu2>
+      <kp>1.0e7</kp>
+      <kd>1.0e3</kd>
+      <minDepth>0.001</minDepth>
+    </gazebo>
+  </xacro:macro>
+  <xacro:caster_contact link="left_caster_link"/>
+  <xacro:caster_contact link="right_caster_link"/>
+
+  <!-- Fork tines: steel. The friction prevents pallet movement during transport.-->
+  <gazebo reference="left_fork_link"><mu1>0.6</mu1><mu2>0.6</mu2></gazebo>
+  <gazebo reference="right_fork_link"><mu1>0.6</mu1><mu2>0.6</mu2></gazebo>
+
+  <!-- ============================ Sensors ============================ -->
+  <!-- One 2D gpu_lidar model for the two scanners (front: /scan, rear: /scan_rear).-->
+  <xacro:macro name="planar_lidar" params="link sensor topic spec">
+    <gazebo reference="${link}">
+      <sensor name="${sensor}" type="gpu_lidar">
+        <gz_frame_id>${fp}${link}</gz_frame_id>
+        <topic>/${rn}/${topic}</topic>
+        <update_rate>${spec['update_rate']}</update_rate>
+        <always_on>true</always_on>
+        <visualize>false</visualize>
+        <lidar>
+          <scan>
+            <horizontal>
+              <samples>${spec['samples']}</samples>
+              <resolution>1</resolution>
+              <min_angle>${spec['min_angle']}</min_angle>
+              <max_angle>${spec['max_angle']}</max_angle>
+            </horizontal>
+            <vertical>
+              <samples>1</samples>
+              <resolution>1</resolution>
+              <min_angle>0</min_angle>
+              <max_angle>0</max_angle>
+            </vertical>
+          </scan>
+          <range>
+            <min>${spec['range_min']}</min>
+            <max>${spec['range_max']}</max>
+            <resolution>0.01</resolution>
+          </range>
+          <noise>
+            <type>gaussian</type>
+            <mean>0.0</mean>
+            <stddev>${spec['range_noise_stddev']}</stddev>
+          </noise>
+        </lidar>
+      </sensor>
+    </gazebo>
+  </xacro:macro>
+  <xacro:planar_lidar link="lidar_link" sensor="lidar" topic="scan" spec="${sn['lidar']}"/>
+  <xacro:planar_lidar link="rear_lidar_link" sensor="rear_lidar" topic="scan_rear"
+                      spec="${sn['rear_lidar']}"/>
+
+  <xacro:property name="cm" value="${sn['camera']}"/>
+  <gazebo reference="camera_link">
+    <!-- A Gazebo camera looks along +x of its frame (camera_link). The images have the stamp
+         of the REP-103 optical frame. Thus, the ROS subscribers get the standard convention.-->
+    <sensor name="camera" type="camera">
+      <gz_frame_id>${fp}camera_optical_frame</gz_frame_id>
+      <topic>/${rn}/camera/image_raw</topic>
+      <update_rate>${cm['update_rate']}</update_rate>
+      <always_on>true</always_on>
+      <visualize>false</visualize>
+      <camera>
+        <camera_info_topic>/${rn}/camera/camera_info</camera_info_topic>
+        <horizontal_fov>${cm['horizontal_fov']}</horizontal_fov>
+        <image>
+          <width>${cm['width']}</width>
+          <height>${cm['height']}</height>
+          <format>R8G8B8</format>
+        </image>
+        <clip>
+          <near>${cm['clip_near']}</near>
+          <far>${cm['clip_far']}</far>
+        </clip>
+        <noise>
+          <type>gaussian</type>
+          <mean>0.0</mean>
+          <stddev>${cm['noise_stddev']}</stddev>
+        </noise>
+      </camera>
+    </sensor>
+  </gazebo>
+
+  <xacro:property name="im" value="${sn['imu']}"/>
+  <xacro:macro name="imu_noise" params="stddev bias">
+    <noise type="gaussian">
+      <mean>0.0</mean>
+      <stddev>${stddev}</stddev>
+      <bias_mean>0.0</bias_mean>
+      <bias_stddev>${bias}</bias_stddev>
+    </noise>
+  </xacro:macro>
+  <gazebo reference="imu_link">
+    <sensor name="imu" type="imu">
+      <gz_frame_id>${fp}imu_link</gz_frame_id>
+      <topic>/${rn}/imu</topic>
+      <update_rate>${im['update_rate']}</update_rate>
+      <always_on>true</always_on>
+      <imu>
+        <angular_velocity>
+          <x><xacro:imu_noise stddev="${im['gyro_noise_stddev']}" bias="${im['gyro_bias_stddev']}"/></x>
+          <y><xacro:imu_noise stddev="${im['gyro_noise_stddev']}" bias="${im['gyro_bias_stddev']}"/></y>
+          <z><xacro:imu_noise stddev="${im['gyro_noise_stddev']}" bias="${im['gyro_bias_stddev']}"/></z>
+        </angular_velocity>
+        <linear_acceleration>
+          <x><xacro:imu_noise stddev="${im['accel_noise_stddev']}" bias="${im['accel_bias_stddev']}"/></x>
+          <y><xacro:imu_noise stddev="${im['accel_noise_stddev']}" bias="${im['accel_bias_stddev']}"/></y>
+          <z><xacro:imu_noise stddev="${im['accel_noise_stddev']}" bias="${im['accel_bias_stddev']}"/></z>
+        </linear_acceleration>
+      </imu>
+    </sensor>
+  </gazebo>
+
+  <!-- ===================== Ground truth (evaluation only) ===================== -->
+  <!-- The bridge sends it to /ground_truth/odom with frame ids that are NOT in the TF tree.
+       No autonomy node can subscribe to it (see docs/coordinate_frames.md).-->
+  <gazebo>
+    <plugin filename="gz-sim-odometry-publisher-system" name="gz::sim::systems::OdometryPublisher">
+      <odom_frame>ground_truth_world</odom_frame>
+      <robot_base_frame>ground_truth_base</robot_base_frame>
+      <odom_topic>/${rn}/ground_truth/odom</odom_topic>
+      <tf_topic>/${rn}/ground_truth/tf</tf_topic>
+      <odom_publish_frequency>50</odom_publish_frequency>
+      <dimensions>3</dimensions>
+    </plugin>
+  </gazebo>
+
+</robot>

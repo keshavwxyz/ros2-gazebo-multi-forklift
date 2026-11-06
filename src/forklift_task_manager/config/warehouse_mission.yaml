@@ -1,0 +1,60 @@
+# The only source of the forklift mission data (docs/system_design.md D12).
+#
+# These items read this file: the QR perception node (payload validation), the Gazebo
+# scenario spawner (load positions), the QR texture generator, and the task manager
+# (Phase 7). forklift_task_manager/mission_config.py validates it. If a value is not
+# consistent, the validation fails with a clear error.
+#
+# The coordinates are in the map frame. The map frame is the same as the Gazebo world frame
+# of warehouse.sdf (x east, y north). Metres and radians.
+
+version: 1
+
+qr:
+  # Printed edge length of the QR *symbol* (outer corners of the finder patterns), m.
+  # The white quiet zone (4 modules) is printed around it. The pose estimation uses this value.
+  edge_length: 0.30
+  # Payload grammar: "<BOX_ID>:<DESTINATION_ID>", for example "BOX_A:SHELF_01" (QR byte mode).
+  max_payload_length: 64
+
+# One rigid load unit: a pallet with two fork pockets and a box on the top.
+# Load frame: center of the pallet footprint on the floor; +x = the face with the QR code
+# (the side from which the forklift comes); z up.
+load:
+  pallet: {depth: 0.80, width: 0.80, height: 0.15, deck_thickness: 0.03}
+  stringer_width: 0.10            # three stringers at y = -0.35, 0, +0.35
+  box: {depth: 0.60, width: 0.60, height: 0.50}
+  mass: 30.0                      # kg, pallet + box + contents
+
+# Staging pose = the pose where Nav2 stops the robot before the final approach with the
+# camera. The robot points at the load (or platform). The fork tips are `staging_gap` in front
+# of the front face of the pallet. fork_tip_offset = distance of the fork tips in front of
+# base_footprint (robot geometry; a test compares it with forklift_description).
+approach:
+  staging_gap: 0.8
+  fork_tip_offset: 1.38
+
+home: {x: -6.0, y: 0.0, yaw: 0.0}
+
+# Locations where the loads wait for the pickup. Pose = load frame. The yaw turns the QR
+# face to the north (+y), to the aisle from which the forklift comes.
+pickups:
+  PICK_01: {x: -3.0, y: -4.6, yaw: 1.5708}
+  PICK_02: {x: 0.0, y: -4.6, yaw: 1.5708}
+  PICK_03: {x: 3.0, y: -4.6, yaw: 1.5708}
+
+# Storage platforms. Pose = load frame after the placement on the platform. The yaw turns
+# the QR face to the south (-y), back to the aisle. surface_height = height of the platform
+# deck. face_offset = distance from that pose to the front face of the platform along the +x
+# axis of the load (the placement skill measures the face with the LiDAR before it moves in).
+destinations:
+  SHELF_01: {x: -3.0, y: 5.3, yaw: -1.5708, surface_height: 0.25, face_offset: 0.5}
+  SHELF_02: {x: 0.0, y: 5.3, yaw: -1.5708, surface_height: 0.25, face_offset: 0.5}
+  SHELF_03: {x: 3.0, y: 5.3, yaw: -1.5708, surface_height: 0.25, face_offset: 0.5}
+
+# The boxes, in a deterministic mission sequence. The QR payload of each box is
+# "<id>:<destination>". The code calculates it. Nobody writes it manually. Thus, it always agrees.
+boxes:
+  - {id: BOX_A, destination: SHELF_01, pickup: PICK_01}
+  - {id: BOX_B, destination: SHELF_03, pickup: PICK_02}
+  - {id: BOX_C, destination: SHELF_02, pickup: PICK_03}

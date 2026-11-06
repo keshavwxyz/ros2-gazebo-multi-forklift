@@ -1,0 +1,398 @@
+<?xml version="1.0"?>
+<!--
+  Kinematic and dynamic model of the forklift: links and joints that do not depend on a simulator.
+
+  Frames (see docs/coordinate_frames.md):
+    base_footprint  ground, below the center of the drive axle (root)
+    base_link       center of the drive axle at the height of the wheel axis (carries the chassis)
+    mast_link       ground level below the center of the mast uprights
+    fork_carriage_link  fork heel: front face of the fork shanks, fork top surface;
+                        its height above the ground = lift.min_height + fork_lift_joint position
+
+  Macro parameter p: dict from forklift_params.yaml.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:include filename="macros/inertia.xacro"/>
+
+  <xacro:macro name="forklift_body" params="p">
+    <!-- Short names-->
+    <xacro:property name="ch" value="${p['chassis']}"/>
+    <xacro:property name="cw" value="${p['counterweight']}"/>
+    <xacro:property name="og" value="${p['overhead_guard']}"/>
+    <xacro:property name="dw" value="${p['drive_wheel']}"/>
+    <xacro:property name="cs" value="${p['caster']}"/>
+    <xacro:property name="ms" value="${p['mast']}"/>
+    <xacro:property name="cg" value="${p['carriage']}"/>
+    <xacro:property name="fk" value="${p['forks']}"/>
+    <xacro:property name="lf" value="${p['lift']}"/>
+    <xacro:property name="sn" value="${p['sensors']}"/>
+    <!-- z of the ground plane in base_link-->
+    <xacro:property name="g" value="${-dw['radius']}"/>
+
+    <material name="forklift_orange"><color rgba="0.95 0.55 0.05 1"/></material>
+    <material name="steel_dark"><color rgba="0.20 0.20 0.22 1"/></material>
+    <material name="steel"><color rgba="0.55 0.55 0.58 1"/></material>
+    <material name="rubber"><color rgba="0.05 0.05 0.05 1"/></material>
+    <material name="sensor_black"><color rgba="0.10 0.10 0.10 1"/></material>
+
+    <!-- ===================== Base ===================== -->
+    <link name="base_footprint"/>
+
+    <joint name="base_footprint_joint" type="fixed">
+      <parent link="base_footprint"/>
+      <child link="base_link"/>
+      <origin xyz="0 0 ${dw['radius']}" rpy="0 0 0"/>
+    </joint>
+
+    <xacro:property name="chassis_cx" value="${ch['front_x'] - ch['length'] / 2.0}"/>
+    <xacro:property name="chassis_cz" value="${g + ch['ground_clearance'] + ch['height'] / 2.0}"/>
+    <link name="base_link">
+      <visual>
+        <origin xyz="${chassis_cx} 0 ${chassis_cz}" rpy="0 0 0"/>
+        <geometry><box size="${ch['length']} ${ch['width']} ${ch['height']}"/></geometry>
+        <material name="forklift_orange"/>
+      </visual>
+      <collision>
+        <origin xyz="${chassis_cx} 0 ${chassis_cz}" rpy="0 0 0"/>
+        <geometry><box size="${ch['length']} ${ch['width']} ${ch['height']}"/></geometry>
+      </collision>
+      <xacro:box_inertial m="${ch['mass']}" x="${ch['length']}" y="${ch['width']}" z="${ch['height']}">
+        <origin xyz="${chassis_cx} 0 ${chassis_cz}" rpy="0 0 0"/>
+      </xacro:box_inertial>
+    </link>
+
+    <!-- Counterweight: at the rear, on the top of the chassis-->
+    <joint name="counterweight_joint" type="fixed">
+      <parent link="base_link"/>
+      <child link="counterweight_link"/>
+      <origin xyz="${ch['front_x'] - ch['length'] + cw['length'] / 2.0} 0
+                   ${g + ch['ground_clearance'] + ch['height'] + cw['height'] / 2.0}" rpy="0 0 0"/>
+    </joint>
+    <link name="counterweight_link">
+      <visual>
+        <geometry><box size="${cw['length']} ${cw['width']} ${cw['height']}"/></geometry>
+        <material name="steel_dark"/>
+      </visual>
+      <collision>
+        <geometry><box size="${cw['length']} ${cw['width']} ${cw['height']}"/></geometry>
+      </collision>
+      <xacro:box_inertial m="${cw['mass']}" x="${cw['length']}" y="${cw['width']}" z="${cw['height']}">
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+      </xacro:box_inertial>
+    </link>
+
+    <!-- Overhead guard: 4 posts + roof. The frame is at the center of the roof.
+         The inertia is that of a solid box around the posts and the roof (a documented approximation).-->
+    <xacro:property name="og_top" value="${g + og['roof_height']}"/>
+    <xacro:property name="og_base" value="${g + ch['ground_clearance'] + ch['height']}"/>
+    <xacro:property name="og_len" value="${og['front_x'] - og['rear_x']}"/>
+    <xacro:property name="og_post_len" value="${og_top - og_base}"/>
+    <joint name="overhead_guard_joint" type="fixed">
+      <parent link="base_link"/>
+      <child link="overhead_guard_link"/>
+      <origin xyz="${(og['front_x'] + og['rear_x']) / 2.0} 0 ${og_top + og['roof_thickness'] / 2.0}" rpy="0 0 0"/>
+    </joint>
+    <link name="overhead_guard_link">
+      <visual>
+        <geometry><box size="${og_len + 0.05} ${2 * og['post_y'] + 0.10} ${og['roof_thickness']}"/></geometry>
+        <material name="steel_dark"/>
+      </visual>
+      <collision>
+        <geometry><box size="${og_len + 0.05} ${2 * og['post_y'] + 0.10} ${og['roof_thickness']}"/></geometry>
+      </collision>
+      <xacro:macro name="guard_post" params="px py">
+        <visual>
+          <origin xyz="${px} ${py} ${-(og['roof_thickness'] + og_post_len) / 2.0}" rpy="0 0 0"/>
+          <geometry><cylinder radius="${og['post_radius']}" length="${og_post_len}"/></geometry>
+          <material name="steel_dark"/>
+        </visual>
+        <collision>
+          <origin xyz="${px} ${py} ${-(og['roof_thickness'] + og_post_len) / 2.0}" rpy="0 0 0"/>
+          <geometry><cylinder radius="${og['post_radius']}" length="${og_post_len}"/></geometry>
+        </collision>
+      </xacro:macro>
+      <xacro:guard_post px="${og_len / 2.0}" py="${og['post_y']}"/>
+      <xacro:guard_post px="${og_len / 2.0}" py="${-og['post_y']}"/>
+      <xacro:guard_post px="${-og_len / 2.0}" py="${og['post_y']}"/>
+      <xacro:guard_post px="${-og_len / 2.0}" py="${-og['post_y']}"/>
+      <xacro:box_inertial m="${og['mass']}" x="${og_len}" y="${2 * og['post_y']}" z="${og_post_len + og['roof_thickness']}">
+        <origin xyz="0 0 ${-og_post_len / 2.0}" rpy="0 0 0"/>
+      </xacro:box_inertial>
+    </link>
+
+    <!-- ===================== Wheels ===================== -->
+    <!-- Driven front wheels: continuous joints about +y (positive rotation moves the robot forward).-->
+    <xacro:macro name="drive_wheel" params="side y_sign">
+      <joint name="${side}_drive_wheel_joint" type="continuous">
+        <parent link="base_link"/>
+        <child link="${side}_drive_wheel_link"/>
+        <origin xyz="0 ${y_sign * dw['separation'] / 2.0} 0" rpy="0 0 0"/>
+        <axis xyz="0 1 0"/>
+        <limit effort="${dw['max_effort']}" velocity="${dw['max_velocity']}"/>
+        <dynamics damping="0.1" friction="0.0"/>
+      </joint>
+      <link name="${side}_drive_wheel_link">
+        <visual>
+          <origin xyz="0 0 0" rpy="${pi / 2} 0 0"/>
+          <geometry><cylinder radius="${dw['radius']}" length="${dw['width']}"/></geometry>
+          <material name="rubber"/>
+        </visual>
+        <!-- Sphere, not cylinder: physics engines put the cylinder-on-plane contacts at the rim
+             edges (measured in Gazebo/DART: effective track = separation + width, thus a 13 %
+             yaw-odometry error). A sphere gives one contact at the center plane of the tire.-->
+        <collision>
+          <geometry><sphere radius="${dw['radius']}"/></geometry>
+        </collision>
+        <xacro:cylinder_y_inertial m="${dw['mass']}" r="${dw['radius']}" h="${dw['width']}">
+          <origin xyz="0 0 0" rpy="0 0 0"/>
+        </xacro:cylinder_y_inertial>
+      </link>
+    </xacro:macro>
+    <xacro:drive_wheel side="left" y_sign="1"/>
+    <xacro:drive_wheel side="right" y_sign="-1"/>
+
+    <!-- Rear support wheels. They are fixed spheres. The simulator layer gives them
+         almost zero friction. Thus, they operate as free casters without swivel-joint jitter.-->
+    <xacro:macro name="caster" params="side y_sign">
+      <joint name="${side}_caster_joint" type="fixed">
+        <parent link="base_link"/>
+        <child link="${side}_caster_link"/>
+        <origin xyz="${cs['x']} ${y_sign * cs['y']} ${g + cs['radius']}" rpy="0 0 0"/>
+      </joint>
+      <link name="${side}_caster_link">
+        <visual>
+          <geometry><sphere radius="${cs['radius']}"/></geometry>
+          <material name="rubber"/>
+        </visual>
+        <collision>
+          <geometry><sphere radius="${cs['radius']}"/></geometry>
+        </collision>
+        <xacro:sphere_inertial m="${cs['mass']}" r="${cs['radius']}">
+          <origin xyz="0 0 0" rpy="0 0 0"/>
+        </xacro:sphere_inertial>
+      </link>
+    </xacro:macro>
+    <xacro:caster side="left" y_sign="1"/>
+    <xacro:caster side="right" y_sign="-1"/>
+
+    <!-- ===================== Mast ===================== -->
+    <xacro:property name="upright_len" value="${ms['height'] - ms['bottom_z']}"/>
+    <joint name="mast_joint" type="fixed">
+      <parent link="base_link"/>
+      <child link="mast_link"/>
+      <origin xyz="${ms['x']} 0 ${g}" rpy="0 0 0"/>
+    </joint>
+    <link name="mast_link">
+      <xacro:macro name="upright" params="y">
+        <visual>
+          <origin xyz="0 ${y} ${ms['bottom_z'] + upright_len / 2.0}" rpy="0 0 0"/>
+          <geometry><box size="${ms['upright_size_x']} ${ms['upright_size_y']} ${upright_len}"/></geometry>
+          <material name="steel_dark"/>
+        </visual>
+        <collision>
+          <origin xyz="0 ${y} ${ms['bottom_z'] + upright_len / 2.0}" rpy="0 0 0"/>
+          <geometry><box size="${ms['upright_size_x']} ${ms['upright_size_y']} ${upright_len}"/></geometry>
+        </collision>
+      </xacro:macro>
+      <xacro:upright y="${ms['upright_y']}"/>
+      <xacro:upright y="${-ms['upright_y']}"/>
+      <!-- top cross member-->
+      <visual>
+        <origin xyz="0 0 ${ms['height'] - 0.04}" rpy="0 0 0"/>
+        <geometry><box size="${ms['upright_size_x']} ${2 * ms['upright_y'] + ms['upright_size_y']} 0.08"/></geometry>
+        <material name="steel_dark"/>
+      </visual>
+      <collision>
+        <origin xyz="0 0 ${ms['height'] - 0.04}" rpy="0 0 0"/>
+        <geometry><box size="${ms['upright_size_x']} ${2 * ms['upright_y'] + ms['upright_size_y']} 0.08"/></geometry>
+      </collision>
+      <xacro:box_inertial m="${ms['mass']}" x="${ms['upright_size_x']}" y="${2 * ms['upright_y'] + ms['upright_size_y']}" z="${upright_len}">
+        <origin xyz="0 0 ${ms['bottom_z'] + upright_len / 2.0}" rpy="0 0 0"/>
+      </xacro:box_inertial>
+    </link>
+
+    <!-- ===================== Lift ===================== -->
+    <joint name="fork_lift_joint" type="prismatic">
+      <parent link="mast_link"/>
+      <child link="fork_carriage_link"/>
+      <origin xyz="${cg['x_offset']} 0 ${lf['min_height']}" rpy="0 0 0"/>
+      <axis xyz="0 0 1"/>
+      <limit lower="0.0" upper="${lf['max_travel']}" effort="${lf['max_effort']}" velocity="${lf['max_velocity']}"/>
+      <dynamics damping="${lf['damping']}" friction="0.0"/>
+    </joint>
+
+    <!-- Carriage: two horizontal bars behind the fork shanks-->
+    <xacro:property name="bar_x" value="${-fk['shank_thickness'] - cg['bar_thickness'] / 2.0}"/>
+    <link name="fork_carriage_link">
+      <xacro:macro name="carriage_bar" params="z">
+        <visual>
+          <origin xyz="${bar_x} 0 ${z}" rpy="0 0 0"/>
+          <geometry><box size="${cg['bar_thickness']} ${cg['width']} ${cg['bar_height']}"/></geometry>
+          <material name="steel"/>
+        </visual>
+        <collision>
+          <origin xyz="${bar_x} 0 ${z}" rpy="0 0 0"/>
+          <geometry><box size="${cg['bar_thickness']} ${cg['width']} ${cg['bar_height']}"/></geometry>
+        </collision>
+      </xacro:macro>
+      <xacro:carriage_bar z="${cg['lower_bar_z']}"/>
+      <xacro:carriage_bar z="${cg['upper_bar_z']}"/>
+      <xacro:box_inertial m="${cg['mass']}" x="${cg['bar_thickness']}" y="${cg['width']}"
+                          z="${cg['upper_bar_z'] - cg['lower_bar_z'] + cg['bar_height']}">
+        <origin xyz="${bar_x} 0 ${(cg['upper_bar_z'] + cg['lower_bar_z']) / 2.0}" rpy="0 0 0"/>
+      </xacro:box_inertial>
+    </link>
+
+    <!-- Forks: L-shaped tine + shank. Inertia: combination of the two solid boxes about their
+         common center of mass (parallel-axis theorem). The mass is divided by volume.-->
+    <xacro:property name="tine_v" value="${fk['length'] * fk['width'] * fk['thickness']}"/>
+    <xacro:property name="shank_h" value="${fk['shank_height'] + fk['thickness']}"/>
+    <xacro:property name="shank_v" value="${fk['shank_thickness'] * fk['width'] * shank_h}"/>
+    <xacro:property name="m_t" value="${fk['mass'] * tine_v / (tine_v + shank_v)}"/>
+    <xacro:property name="m_s" value="${fk['mass'] * shank_v / (tine_v + shank_v)}"/>
+    <!-- centers of the parts in the fork frame-->
+    <xacro:property name="t_x" value="${fk['length'] / 2.0}"/>
+    <xacro:property name="t_z" value="${-fk['thickness'] / 2.0}"/>
+    <xacro:property name="s_x" value="${-fk['shank_thickness'] / 2.0}"/>
+    <xacro:property name="s_z" value="${shank_h / 2.0 - fk['thickness']}"/>
+    <xacro:property name="c_x" value="${(m_t * t_x + m_s * s_x) / fk['mass']}"/>
+    <xacro:property name="c_z" value="${(m_t * t_z + m_s * s_z) / fk['mass']}"/>
+    <xacro:property name="f_ixx" value="${m_t * (fk['width']**2 + fk['thickness']**2) / 12.0 + m_t * (t_z - c_z)**2
+                                         + m_s * (fk['width']**2 + shank_h**2) / 12.0 + m_s * (s_z - c_z)**2}"/>
+    <xacro:property name="f_iyy" value="${m_t * (fk['length']**2 + fk['thickness']**2) / 12.0 + m_t * ((t_x - c_x)**2 + (t_z - c_z)**2)
+                                         + m_s * (fk['shank_thickness']**2 + shank_h**2) / 12.0 + m_s * ((s_x - c_x)**2 + (s_z - c_z)**2)}"/>
+    <xacro:property name="f_izz" value="${m_t * (fk['length']**2 + fk['width']**2) / 12.0 + m_t * (t_x - c_x)**2
+                                         + m_s * (fk['shank_thickness']**2 + fk['width']**2) / 12.0 + m_s * (s_x - c_x)**2}"/>
+    <xacro:property name="f_ixz" value="${-(m_t * (t_x - c_x) * (t_z - c_z) + m_s * (s_x - c_x) * (s_z - c_z))}"/>
+
+    <xacro:macro name="fork" params="side y_sign">
+      <joint name="${side}_fork_joint" type="fixed">
+        <parent link="fork_carriage_link"/>
+        <child link="${side}_fork_link"/>
+        <origin xyz="0 ${y_sign * fk['spacing'] / 2.0} 0" rpy="0 0 0"/>
+      </joint>
+      <link name="${side}_fork_link">
+        <visual>
+          <origin xyz="${t_x} 0 ${t_z}" rpy="0 0 0"/>
+          <geometry><box size="${fk['length']} ${fk['width']} ${fk['thickness']}"/></geometry>
+          <material name="steel"/>
+        </visual>
+        <collision>
+          <origin xyz="${t_x} 0 ${t_z}" rpy="0 0 0"/>
+          <geometry><box size="${fk['length']} ${fk['width']} ${fk['thickness']}"/></geometry>
+        </collision>
+        <visual>
+          <origin xyz="${s_x} 0 ${s_z}" rpy="0 0 0"/>
+          <geometry><box size="${fk['shank_thickness']} ${fk['width']} ${shank_h}"/></geometry>
+          <material name="steel"/>
+        </visual>
+        <collision>
+          <origin xyz="${s_x} 0 ${s_z}" rpy="0 0 0"/>
+          <geometry><box size="${fk['shank_thickness']} ${fk['width']} ${shank_h}"/></geometry>
+        </collision>
+        <inertial>
+          <origin xyz="${c_x} 0 ${c_z}" rpy="0 0 0"/>
+          <mass value="${fk['mass']}"/>
+          <inertia ixx="${f_ixx}" ixy="0" ixz="${f_ixz}" iyy="${f_iyy}" iyz="0" izz="${f_izz}"/>
+        </inertial>
+      </link>
+    </xacro:macro>
+    <xacro:fork side="left" y_sign="1"/>
+    <xacro:fork side="right" y_sign="-1"/>
+
+    <!-- Alignment reference: the point between the fork tips, on the fork top surface-->
+    <joint name="fork_tip_joint" type="fixed">
+      <parent link="fork_carriage_link"/>
+      <child link="fork_tip_frame"/>
+      <origin xyz="${fk['length']} 0 0" rpy="0 0 0"/>
+    </joint>
+    <link name="fork_tip_frame"/>
+
+    <!-- ===================== Sensor mounts ===================== -->
+    <xacro:property name="ld" value="${sn['lidar']}"/>
+    <joint name="lidar_joint" type="fixed">
+      <parent link="base_link"/>
+      <child link="lidar_link"/>
+      <origin xyz="${ld['x']} 0 ${g + ld['z']}" rpy="0 0 0"/>
+    </joint>
+    <link name="lidar_link">
+      <visual>
+        <geometry><cylinder radius="${ld['radius']}" length="${ld['height']}"/></geometry>
+        <material name="sensor_black"/>
+      </visual>
+      <collision>
+        <geometry><cylinder radius="${ld['radius']}" length="${ld['height']}"/></geometry>
+      </collision>
+      <xacro:cylinder_z_inertial m="0.2" r="${ld['radius']}" h="${ld['height']}">
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+      </xacro:cylinder_z_inertial>
+    </link>
+
+    <!-- Rear LiDAR: yaw = pi. Thus, its +x axis (scan center) points rearward.-->
+    <xacro:property name="rl" value="${sn['rear_lidar']}"/>
+    <joint name="rear_lidar_joint" type="fixed">
+      <parent link="base_link"/>
+      <child link="rear_lidar_link"/>
+      <origin xyz="${rl['x']} 0 ${g + rl['z']}" rpy="0 0 ${pi}"/>
+    </joint>
+    <link name="rear_lidar_link">
+      <visual>
+        <geometry><cylinder radius="${rl['radius']}" length="${rl['height']}"/></geometry>
+        <material name="sensor_black"/>
+      </visual>
+      <collision>
+        <geometry><cylinder radius="${rl['radius']}" length="${rl['height']}"/></geometry>
+      </collision>
+      <xacro:cylinder_z_inertial m="0.2" r="${rl['radius']}" h="${rl['height']}">
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+      </xacro:cylinder_z_inertial>
+    </link>
+
+    <xacro:property name="cm" value="${sn['camera']}"/>
+    <joint name="camera_joint" type="fixed">
+      <parent link="base_link"/>
+      <child link="camera_link"/>
+      <origin xyz="${cm['x']} 0 ${g + cm['z']}" rpy="0 ${cm['pitch']} 0"/>
+    </joint>
+    <link name="camera_link">
+      <visual>
+        <geometry><box size="0.03 0.08 0.03"/></geometry>
+        <material name="sensor_black"/>
+      </visual>
+      <collision>
+        <geometry><box size="0.03 0.08 0.03"/></geometry>
+      </collision>
+      <xacro:box_inertial m="0.1" x="0.03" y="0.08" z="0.03">
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+      </xacro:box_inertial>
+    </link>
+    <!-- REP-103 optical frame: z forward, x right, y down-->
+    <joint name="camera_optical_joint" type="fixed">
+      <parent link="camera_link"/>
+      <child link="camera_optical_frame"/>
+      <origin xyz="0 0 0" rpy="${-pi / 2} 0 ${-pi / 2}"/>
+    </joint>
+    <link name="camera_optical_frame"/>
+
+    <xacro:property name="im" value="${sn['imu']}"/>
+    <joint name="imu_joint" type="fixed">
+      <parent link="base_link"/>
+      <child link="imu_link"/>
+      <origin xyz="${im['x']} 0 ${g + im['z']}" rpy="0 0 0"/>
+    </joint>
+    <link name="imu_link">
+      <visual>
+        <geometry><box size="0.04 0.04 0.02"/></geometry>
+        <material name="sensor_black"/>
+      </visual>
+      <collision>
+        <geometry><box size="0.04 0.04 0.02"/></geometry>
+      </collision>
+      <xacro:box_inertial m="0.05" x="0.04" y="0.04" z="0.02">
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+      </xacro:box_inertial>
+    </link>
+  </xacro:macro>
+
+</robot>

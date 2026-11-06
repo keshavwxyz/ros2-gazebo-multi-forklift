@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<!--
+  Entry point of the forklift robot description.
+
+  Arguments:
+    params_file   YAML file for geometry and mass (default: config/forklift_params.yaml)
+    sim_backend   ros2_control hardware plugin: mock | gazebo
+    ros2_control  true/false: include the <ros2_control> block
+    extensions    optional path to a xacro file for one simulator (for example, the Gazebo
+                  sensor and plugin tags from forklift_simulation). Thus, this package
+                  does not depend on a simulator.
+
+  Example:
+    xacro forklift.urdf.xacro sim_backend:=mock > forklift.urdf
+-->
+<robot name="forklift" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:arg name="params_file" default=""/>
+  <xacro:arg name="sim_backend" default="mock"/>
+  <xacro:arg name="ros2_control" default="true"/>
+  <xacro:arg name="extensions" default=""/>
+
+  <!-- Relative paths resolve from this file (xacro 2.1.1 does not support $(dirname)).
+       Eager evaluation sets that resolution to this file. Give params_file as an absolute path.-->
+  <xacro:property name="params" lazy_eval="false"
+                  value="${xacro.load_yaml('$(arg params_file)' or '../config/forklift_params.yaml')}"/>
+
+  <xacro:include filename="forklift_body.xacro"/>
+  <xacro:include filename="forklift_ros2_control.xacro"/>
+
+  <xacro:forklift_body p="${params}"/>
+
+  <xacro:if value="$(arg ros2_control)">
+    <xacro:forklift_ros2_control p="${params}" backend="$(arg sim_backend)"/>
+  </xacro:if>
+
+  <xacro:if value="${'$(arg extensions)' != ''}">
+    <xacro:include filename="$(arg extensions)"/>
+  </xacro:if>
+
+</robot>

@@ -1,0 +1,134 @@
+# Forklift parameters for geometry, mass and actuators.
+# This is the only source of these values for forklift.urdf.xacro. SI units (m, kg, N, rad, m/s).
+#
+# Reference frame for positions: base_footprint (ground, center of the drive axle).
+# x is forward (to the forks), y is left, z is up.
+#
+# The masses are approximately those of a compact electric pallet stacker (approximately
+# 1.3 t empty). They are engineering estimates. They do not come from a datasheet. The xacro
+# calculates the inertias from primitive shapes (solid box, cylinder, sphere).
+
+chassis:
+  front_x: 0.20            # front face of the chassis, in front of the drive axle
+  length: 1.35             # the chassis is from x = front_x - length to x = front_x
+  width: 0.64              # the body is between the drive wheels
+  height: 0.50
+  ground_clearance: 0.08
+  mass: 600.0
+
+counterweight:
+  length: 0.30             # at the rear end of the chassis, on the top
+  width: 0.64
+  height: 0.30
+  mass: 400.0
+
+overhead_guard:
+  front_x: 0.15
+  rear_x: -0.75
+  post_y: 0.29             # posts at y = +/- post_y
+  post_radius: 0.025
+  roof_height: 2.05        # height of the roof underside above the ground
+  roof_thickness: 0.04
+  mass: 40.0
+
+drive_wheel:               # 2 driven wheels on the front axle (differential drive)
+  radius: 0.18
+  width: 0.12
+  separation: 0.80         # track width from center to center
+  mass: 30.0
+  max_velocity: 6.0        # rad/s  (approximately 1.08 m/s at the rim)
+  max_effort: 400.0        # N*m
+
+caster:                    # 2 rear passive support wheels, modelled as spheres
+  radius: 0.10
+  x: -1.00                 # wheelbase = |x|
+  y: 0.25
+  mass: 10.0
+
+mast:
+  x: 0.26                  # center of the uprights
+  upright_y: 0.30          # uprights at y = +/- upright_y
+  upright_size_x: 0.08
+  upright_size_y: 0.06
+  bottom_z: 0.17           # starts above the LiDAR scan plane
+  height: 2.15             # height of the mast top above the ground
+  mass: 120.0
+
+carriage:
+  x_offset: 0.12           # carriage frame (fork heel) in front of the mast center; the bars are flush with the front of the uprights
+  width: 0.70
+  bar_height: 0.08
+  bar_thickness: 0.04
+  lower_bar_z: 0.25        # height of the bar centers above the fork top surface
+  upper_bar_z: 0.55
+  mass: 60.0
+
+forks:
+  length: 1.00             # tine length from the heel to the tip
+  width: 0.10
+  thickness: 0.04
+  spacing: 0.40            # from center to center
+  shank_height: 0.60       # vertical part above the fork top surface
+  shank_thickness: 0.04
+  mass: 25.0               # for each fork
+
+lift:
+  min_height: 0.05         # height of the fork top surface above the ground at joint position 0
+  max_travel: 1.00         # upper limit of the joint (fork top at min_height + max_travel)
+  initial_height: 0.02     # joint position at spawn: off the lower hard stop (= insertion height)
+  max_velocity: 0.20       # m/s
+  max_effort: 10000.0      # N: 1.5 x (or more) the weight of rated load + carriage + forks
+  rated_load: 500.0        # kg, design load capacity (the mission boxes are approximately 30 kg)
+  damping: 200.0           # N*s/m, viscous damping of the carriage guide
+
+sensors:
+  # The URDF uses the mount poses. The other fields are sensor specifications that do not
+  # depend on the simulator. Each simulator adapter (Gazebo now, Isaac Sim later) applies them.
+  lidar:
+    x: 0.25                # immediately in front of the front face of the chassis
+    z: 0.12                # height of the scan plane: below a lifted load and above the lowered tines
+    radius: 0.04
+    height: 0.05
+    update_rate: 10.0      # Hz
+    samples: 381           # 0.5 deg resolution in the FOV
+    min_angle: -1.658      # rad (-95 deg); at more than approximately 99 deg, the rays hit the chassis
+    max_angle: 1.658
+    range_min: 0.10        # m
+    range_max: 12.0
+    range_noise_stddev: 0.01
+  # Rear LiDAR (standard equipment): it protects all reverse manoeuvres (rearward motion after
+  # pickup or placement, alignment back-offs, recoveries). Its scan height is the same as the
+  # front LiDAR. Thus, it sees pallets (0 to 0.15 m) and the chassis of other robots. It is
+  # flush with the rear face.
+  rear_lidar:
+    x: -1.19               # the rear face of the chassis is at -1.15; the sensor body is flush behind it
+    z: 0.12
+    radius: 0.04
+    height: 0.05
+    update_rate: 10.0      # Hz
+    samples: 181           # 1 deg resolution in 180 deg (low computing load)
+    min_angle: -1.5708     # rad, relative to the +x axis of the sensor, which points rearward
+    max_angle: 1.5708
+    range_min: 0.10
+    range_max: 8.0
+    range_noise_stddev: 0.01
+  camera:
+    x: 0.14                # below the front edge of the overhead guard
+    z: 2.00
+    pitch: 0.70            # rad (approximately 40 deg) down: the fork tips are visible at the bottom of the image,
+                           # and a QR code at 0.4 m height is visible from approximately 1.0 m to 4.9 m
+    update_rate: 10.0
+    width: 1280
+    height: 720
+    horizontal_fov: 1.2217 # rad (70 deg)
+    clip_near: 0.05
+    clip_far: 30.0
+    noise_stddev: 0.005    # normalized pixel intensity
+  imu:
+    x: -0.45
+    z: 0.30
+    update_rate: 100.0
+    gyro_noise_stddev: 0.002       # rad/s   (MEMS grade)
+    gyro_bias_stddev: 0.0005       # rad/s
+    accel_noise_stddev: 0.02       # m/s^2
+    accel_bias_stddev: 0.005       # m/s^2

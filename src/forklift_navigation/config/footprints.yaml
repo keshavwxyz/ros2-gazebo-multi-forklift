@@ -1,0 +1,53 @@
+# Robot footprints in base_footprint (x forward to the forks, y left), metres.
+# This is the only source for the footprint manager and the scan self-filter. The local
+# costmap in nav2_params.yaml starts with `unloaded` (a test makes sure that they agree).
+#
+# Geometry (forklift_description/config/forklift_params.yaml), with a margin of approximately 3 cm:
+#   rear LiDAR housing       x to -1.23 (center -1.19, r 0.04), on the centerline
+#   chassis + counterweight  x from -1.15 to 0.20, half-width 0.32 (body), 0.46 (wheel tread)
+#   drive-wheel collision    spheres r = 0.18 at (0, +/-0.40) -> to y +/-0.58 for |x| < 0.18
+#                            (wider than the 0.12 m tire: the sphere contacts correct the
+#                            odometry, docs/sensor_setup.md, and all collision shapes must
+#                            be in the footprint)
+#   mast / carriage / shanks x to 0.38 (front face of the shank), uprights at y +/-0.33
+#   fork tines               x from 0.38 to 1.38, outer edges y +/-0.25
+#   carried pallet (loaded)  x from 0.38 to 1.18 when it touches the shanks, y +/-0.40
+#
+# The polygons are concave (fork section, wheel bulges). The costmap footprint checks use
+# the outline. Thus, concave shapes are not a problem. A test makes sure that each URDF
+# collision primitive is in the footprint.
+footprints:
+  unloaded:
+    - [1.41, 0.28]
+    - [0.41, 0.28]
+    - [0.41, 0.49]
+    - [0.21, 0.49]
+    - [0.21, 0.61]
+    - [-0.21, 0.61]
+    - [-0.21, 0.49]
+    - [-1.25, 0.49]
+    - [-1.25, -0.49]
+    - [-0.21, -0.49]
+    - [-0.21, -0.61]
+    - [0.21, -0.61]
+    - [0.21, -0.49]
+    - [0.41, -0.49]
+    - [0.41, -0.28]
+    - [1.41, -0.28]
+  loaded:
+    - [1.41, 0.43]
+    - [0.41, 0.43]
+    - [0.41, 0.49]
+    - [0.21, 0.49]
+    - [0.21, 0.61]
+    - [-0.21, 0.61]
+    - [-0.21, 0.49]
+    - [-1.25, 0.49]
+    - [-1.25, -0.49]
+    - [-0.21, -0.49]
+    - [-0.21, -0.61]
+    - [0.21, -0.61]
+    - [0.21, -0.49]
+    - [0.41, -0.49]
+    - [0.41, -0.43]
+    - [1.41, -0.43]

@@ -1,0 +1,21 @@
+# Reverse-motion safety with the rear LiDAR (forklift_control/rear_safety.py, rear_safety_logic.py).
+# The geometry is in base_footprint. The corridor is the rear face and the half-width of the
+# footprint plus a side margin (face of the rear LiDAR housing x = -1.23;
+# footprints.yaml: x >= -1.25, |y| <= 0.49 at the rear).
+rear_safety:
+  ros__parameters:
+    rear_x: -1.23
+    half_width: 0.49
+    side_margin: 0.15
+    lookahead: 3.0
+    stop_distance: 0.35        # m: at this distance or less, reverse motion is blocked
+    warn_distance: 1.2         # m: at this distance or less, the reverse speed is limited to warn_speed
+    warn_speed: 0.10           # m/s
+    latency: 0.3               # s, from the command to the brake
+    decel: 0.5                 # m/s^2 (limit of the drive controller)
+    resume_margin: 0.10        # m of extra clearance that is necessary to leave STOP (hysteresis)
+    swing_radius: 1.35         # m: distance from the axle to the rear corner of the footprint
+    swing_margin: 0.10
+    min_creep: 0.02            # m/s: if the permitted reverse speed is less than this -> STOP
+    scan_timeout: 0.5          # s with no rear scan -> FAULT (reverse motion is blocked)
+    cmd_timeout: 0.5

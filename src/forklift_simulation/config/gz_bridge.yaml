@@ -1,0 +1,43 @@
+# Gazebo -> ROS topic map: the boundary of the simulator adapter (docs/system_design.md D13).
+# Left: names in Gazebo (/forklift/...). Right: standard ROS names that the autonomy uses.
+# This map is for the default (single) robot. robot.launch.py makes the map for each robot
+# with a namespace from this map (/forklift/... -> /<name>/..., /scan -> /<namespace>/scan).
+# The simulation clock has one bridge for each world (gazebo.launch.py, clock_bridge).
+# Actuation does not go through this bridge. It goes through gz_ros2_control.
+
+- ros_topic_name: /scan
+  gz_topic_name: /forklift/scan
+  ros_type_name: sensor_msgs/msg/LaserScan
+  gz_type_name: gz.msgs.LaserScan
+  direction: GZ_TO_ROS
+
+- ros_topic_name: /scan_rear
+  gz_topic_name: /forklift/scan_rear
+  ros_type_name: sensor_msgs/msg/LaserScan
+  gz_type_name: gz.msgs.LaserScan
+  direction: GZ_TO_ROS
+
+- ros_topic_name: /camera/image_raw
+  gz_topic_name: /forklift/camera/image_raw
+  ros_type_name: sensor_msgs/msg/Image
+  gz_type_name: gz.msgs.Image
+  direction: GZ_TO_ROS
+
+- ros_topic_name: /camera/camera_info
+  gz_topic_name: /forklift/camera/camera_info
+  ros_type_name: sensor_msgs/msg/CameraInfo
+  gz_type_name: gz.msgs.CameraInfo
+  direction: GZ_TO_ROS
+
+- ros_topic_name: /imu/data
+  gz_topic_name: /forklift/imu
+  ros_type_name: sensor_msgs/msg/Imu
+  gz_type_name: gz.msgs.IMU
+  direction: GZ_TO_ROS
+
+# For evaluation only: the autonomy nodes never use it.
+- ros_topic_name: /ground_truth/odom
+  gz_topic_name: /forklift/ground_truth/odom
+  ros_type_name: nav_msgs/msg/Odometry
+  gz_type_name: gz.msgs.Odometry
+  direction: GZ_TO_ROS

@@ -1,0 +1,7 @@
+# Props for the tests only. Their QR codes are NOT valid mission boxes. The launch spawns them
+# only with `sim.launch.py decoys:=true`, for perception rejection tests. They are never part
+# of the mission. They are in the pickup row to the west of PICK_01. They are visible from
+# (-6, -1.8) with the robot pointed south.
+decoys:
+  - {name: decoy_unknown_box, payload: "BOX_Z:SHELF_01", x: -6.8, y: -4.6, yaw: 1.5708}
+  - {name: decoy_malformed, payload: "PALLET-42", x: -5.2, y: -4.6, yaw: 1.5708}

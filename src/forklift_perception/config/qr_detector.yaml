@@ -1,0 +1,8 @@
+qr_detector:
+  ros__parameters:
+    mission_file: ''               # '' = forklift_task_manager/config/warehouse_mission.yaml
+    image_topic: /camera/image_raw
+    camera_info_topic: /camera/camera_info
+    max_rate: 10.0                 # Hz, maximum number of processed frames (decode approximately 20-40 ms for each frame)
+    min_side_px: 12.0              # do not use smaller symbols (less than approximately 0.6 px for each module)
+    publish_debug_image: true      # /perception/qr_debug, the node makes it only when there is a subscriber

@@ -1,0 +1,36 @@
+# Pick up a load. The skill starts at the pickup staging pose of the box. If the robot is
+# at a different location, Nav2 first moves it there. Sequence: stationary check -> forks to
+# insertion height -> identify the box from its QR code -> make sure it is at the configured
+# pickup -> alignment with the camera -> fork insertion -> lift -> make sure that the forks
+# support the load (load sensing from the lift effort) -> move rearward.
+string box_id
+---
+# Error codes (constants of the Result message)
+uint8 ERROR_NONE = 0
+uint8 ERROR_NOT_STATIONARY = 1
+uint8 ERROR_BOX_NOT_VISIBLE = 2
+uint8 ERROR_QR_UNREADABLE = 3
+uint8 ERROR_IDENTITY_MISMATCH = 4
+uint8 ERROR_WRONG_LOCATION = 5
+uint8 ERROR_ALIGNMENT_FAILED = 6
+uint8 ERROR_INSERTION_BLOCKED = 7
+uint8 ERROR_LIFT_FAILED = 8
+uint8 ERROR_PICKUP_NOT_VERIFIED = 9
+uint8 ERROR_LOCALIZATION_UNAVAILABLE = 10
+uint8 ERROR_TIMEOUT = 11
+uint8 ERROR_CANCELED = 12
+uint8 ERROR_INVALID_REQUEST = 13
+uint8 ERROR_NAVIGATION_FAILED = 14
+uint8 ERROR_REAR_BLOCKED = 15         # the rear LiDAR stopped the reverse motion for too long
+
+bool success
+uint8 error_code
+string message
+float32 measured_load_kg        # from the lift effort, after the lift
+float32 lateral_error           # m, at the start of the insertion
+float32 heading_error_deg       # at the start of the insertion
+---
+string phase
+float32 lateral_error
+float32 heading_error_deg
+float32 distance_remaining
